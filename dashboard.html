@@ -6,30 +6,260 @@
   <title>New Tab</title>
   <meta name="description" content="">
   <meta name="viewport" content="width=device-width">
-  <link rel="stylesheet" href="css/style.css">
+  <style>
+  *,
+  *:before,
+  *:after {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -ms-box-sizing: border-box;
+    -o-box-sizing: border-box;
+    box-sizing: border-box;
+  }
+
+  body,
+  html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
+  body {
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-align-items: center;
+    -webkit-flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+    -webkit-justify-content: center;
+    -webkit-transition: background-color 1s;
+  }
+
+  body, input {
+    display: -webkit-flex;
+    font-family: 'Avenir', 'helvetica neue', helvetica, arial, sans-serif;
+  }
+
+  body.dark {
+    background: #303030;
+  }
+
+  .age-label {
+    color: #B0B5B9;
+    font-size: 1.2rem;
+    line-height: 1;
+    margin: 0 0 0 2px;
+  }
+
+  body.dark .age-label {
+    opacity: 0.7;
+    color: #fff;
+  }
+
+  .count {
+    color: #494949;
+    margin: 0;
+    font-size: 6rem;
+    line-height: 1;
+    font-weight: 600;
+  }
+
+  body.dark .count {
+    color: #fff;
+  }
+
+  .count sup {
+    font-size: 2.4rem;
+    margin-left: 7px;
+  }
+
+  label {
+    display: block;
+  }
+
+  input, button {
+    padding: 0.375rem 0.75rem;
+    font-size: 1.5rem;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  input {
+    margin-right: 0.5rem;
+    box-sizing: border-box;
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 0.25rem;
+    border-color: #CCC;
+    background-color: #FFF;
+  }
+
+  button {
+    outline: none;
+    display: block;
+    cursor: pointer;
+    color: #FFF;
+    border: none;
+    border-radius: 0.25rem;
+    background-color: #0BE;
+  }
+
+  footer {
+    padding-top: 0.5rem;
+    display: -webkit-flex;
+    -webkit-flex-direction: row;
+    -webkit-justify-content: center;
+  }
+
+  #toggle-dark {
+    color: #494949;
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    -webkit-user-select: none;
+    cursor: pointer;
+  }
+
+  body.dark #toggle-dark {
+    opacity: 0.7;
+    color: #fff;
+  }
+  </style>
 </head>
-<body>
+<body class="dark">
 
-<div id="app"></div>
-
-<script id="dob-template" type="text/x-handlebars-template">
-  <form>
+<div id="app">
+  <form id="app-dob">
     <h1 id="dob" class="age-label">When were you born?</h1>
 
     <footer>
       <input type="date" name="dob" id="dob">
       <button type="submit">Motivate</button>
     </footer>
-  <form>
+  </form>
+
+  <div id="app-age" style="display: none;">
+    <h1 class="age-label">AGE</h1>
+    <h2 class="count"><span id="age-year" class="age-year"></span><sup id="age-decimal" class="age-decimal"></sup></h2>
+  </div>
+</div>
+
+<div id="toggle-dark">lights</div>
+
+<script>
+var $ = document.querySelector.bind(document);
+
+function getDecimalDate(date) {
+  var year = date.getFullYear(), start = +new Date(year, 0);
+  return year + (date - start) / (new Date(year + 1, 0) - start);
+}
+
+function fromUTC(date) {
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function App(dobEl, ageEl) {
+  this.dobEl = dobEl;
+  this.ageEl = ageEl;
+
+  this.yearEl = this.ageEl.querySelector('.age-year');
+  this.decimalEl = this.ageEl.querySelector('.age-decimal');
+
+  this.birthCache = null;
+
+  this.load();
+  this.applyDark();
+
+  this.dobEl.addEventListener('submit', this.submit.bind(this));
+
+  if (this.dob) {
+    this.showAge();
+  } else {
+    this.showChoice();
+  }
+}
+
+App.prototype.load = function() {
+  var value = localStorage.dob, date = null;
+  if (value) {
+    date = new Date(parseInt(value, 10));
+    if (isNaN(date)) {
+      date = null;
+    } else {
+      // convert to local time for comparisons
+      date = fromUTC(date);
+    }
+  }
+  this.dob = date;
+  if (date) {
+    this.birthCache = getDecimalDate(date);
+  }
+
+  this.dark = !!localStorage.dark;
+};
+
+App.prototype.save = function() {
+  if (this.dob) {
+    localStorage.dob = +this.dob;
+  }
+
+  if (this.dark) {
+    localStorage.dark = 1;
+  } else {
+    delete localStorage.dark;
+  }
+};
+
+App.prototype.submit = function(event) {
+  event.preventDefault();
+
+  var input = this.dobEl.querySelector('input');
+  if (!input.valueAsDate) {
+    return;
+  }
+  this.dob = fromUTC(input.valueAsDate);
+  this.birthCache = getDecimalDate(this.dob);
+  this.save();
+  this.showAge();
+};
+
+App.prototype.showChoice = function() {
+  this.dobEl.style.display = null;
+  this.ageEl.style.display = 'none';
+};
+
+App.prototype.showAge = function() {
+  this.ageEl.style.display = null;
+  this.dobEl.style.display = 'none';
+
+  this.renderAge();
+};
+
+App.prototype.renderAge = function() {
+  var diff = (getDecimalDate(new Date()) - this.birthCache).toFixed(9),
+    diffIndex = diff.indexOf('.');
+
+  this.yearEl.textContent = diff.slice(0, diffIndex);
+  this.decimalEl.textContent = diff.slice(diffIndex);
+
+  requestAnimationFrame(this.renderAge.bind(this));
+};
+
+App.prototype.applyDark = function() {
+  if (this.dark) {
+    document.body.classList.add('dark');
+  } else {
+    document.body.classList.remove('dark');
+  }
+};
+
+App.prototype.toggleDark = function() {
+  this.dark = !this.dark;
+  this.applyDark();
+  this.save();
+};
+
+var app = new App($('#app-dob'), $('#app-age'));
+
+$('#toggle-dark').addEventListener('click', app.toggleDark.bind(app));
 </script>
-
-<script id="age-template" type="text/x-handlebars-template">
-  <h1 class="age-label">AGE</h1>
-  <h2 class="count">{{year}}<sup>.{{milliseconds}}</sup></h2>
-</script>
-
-<script src="js/handlebars.js"></script>
-<script src="app/app.js"></script>
-
 </body>
 </html>
