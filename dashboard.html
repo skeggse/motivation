@@ -147,9 +147,13 @@
 <script>
 var $ = document.querySelector.bind(document);
 
-function getDecimalDate(date) {
-  var year = date.getFullYear(), start = +new Date(year, 0);
-  return year + (date - start) / (new Date(year + 1, 0) - start);
+function getDecimalAge(birth, now) {
+  var prevday = new Date(birth), thisyear = now.getFullYear();
+  prevday.setFullYear(thisyear);
+  if (prevday > now) prevday.setFullYear(thisyear -= 1);
+  var nextday = new Date(prevday);
+  nextday.setFullYear(thisyear + 1);
+  return (thisyear - birth.getFullYear()) + (now - prevday) / (nextday - prevday);
 }
 
 function fromUTC(date) {
@@ -162,8 +166,6 @@ function App(dobEl, ageEl) {
 
   this.yearEl = this.ageEl.querySelector('.age-year');
   this.decimalEl = this.ageEl.querySelector('.age-decimal');
-
-  this.birthCache = null;
 
   this.load();
   this.applyDark();
@@ -189,9 +191,6 @@ App.prototype.load = function() {
     }
   }
   this.dob = date;
-  if (date) {
-    this.birthCache = getDecimalDate(date);
-  }
 
   this.dark = !!localStorage.dark;
 };
@@ -216,7 +215,6 @@ App.prototype.submit = function(event) {
     return;
   }
   this.dob = fromUTC(input.valueAsDate);
-  this.birthCache = getDecimalDate(this.dob);
   this.save();
   this.showAge();
 };
@@ -234,7 +232,7 @@ App.prototype.showAge = function() {
 };
 
 App.prototype.renderAge = function() {
-  var diff = (getDecimalDate(new Date()) - this.birthCache).toFixed(9),
+  var diff = getDecimalAge(this.dob, new Date()).toFixed(9),
     diffIndex = diff.indexOf('.');
 
   this.yearEl.textContent = diff.slice(0, diffIndex);
@@ -258,6 +256,11 @@ App.prototype.toggleDark = function() {
 };
 
 var app = new App($('#app-dob'), $('#app-age'));
+
+// crappy fix for weird shaky box model
+setTimeout(function() {
+  app.ageEl.style.width = window.getComputedStyle(app.ageEl).width;
+}, 1);
 
 $('#toggle-dark').addEventListener('click', app.toggleDark.bind(app));
 </script>
